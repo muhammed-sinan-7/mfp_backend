@@ -40,7 +40,9 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1")
 #     "nginx",
 # ]
 ALLOWED_HOSTS=[
-"13.126.82.175",
+    "13.126.82.175",
+    "unisocial.online",
+    "www.unisocial.online",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
