@@ -44,8 +44,10 @@ ALLOWED_HOSTS=[
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:8080",
-    "http://localhost:8080",
+    # "http://127.0.0.1:8080",
+    # "http://localhost:8080",
+    "http://unisocial.online",
+    "https://unisocial.online",
     "http://13.126.82.175:8080"
 ]
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
