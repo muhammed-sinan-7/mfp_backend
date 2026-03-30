@@ -40,15 +40,16 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1")
 #     "nginx",
 # ]
 ALLOWED_HOSTS=[
-    "*"
+"13.126.82.175",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8080",
     "http://localhost:8080",
+    "http://13.126.82.175:8080"
 ]
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
-
+USE_X_FORWARDED_HOST = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
