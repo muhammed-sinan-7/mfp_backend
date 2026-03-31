@@ -33,15 +33,18 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = os.getenv("DEBUG") == "True"
 REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1")
 
-ALLOWED_HOSTS=[
+ALLOWED_HOSTS = [
     "13.126.82.175",
     "unisocial.online",
     "www.unisocial.online",
+    "api.unisocial.online",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://unisocial.online",
     "https://www.unisocial.online",
+    "https://api.unisocial.online",
+    "https://app.unisocial.online",
 ]
 
 SESSION_COOKIE_SECURE = True
@@ -54,6 +57,7 @@ USE_X_FORWARDED_HOST = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://app.unisocial.online",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
