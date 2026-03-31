@@ -201,13 +201,16 @@ class CustomTokenRefreshView(TokenRefreshView):
         if response.status_code == 200:
             new_refresh = response.data.pop("refresh", None)
             if new_refresh:
-                previous_refresh = RefreshToken(refresh_token)
                 rotated_refresh = RefreshToken(new_refresh)
-                if previous_refresh.get("remember_me"):
-                    rotated_refresh["remember_me"] = True
-                    rotated_refresh.set_exp(
-                        lifetime=settings.REMEMBER_ME_REFRESH_TOKEN_LIFETIME
-                    )
+                try:
+                    previous_refresh = RefreshToken(refresh_token)
+                    if previous_refresh.get("remember_me"):
+                        rotated_refresh["remember_me"] = True
+                        rotated_refresh.set_exp(
+                            lifetime=settings.REMEMBER_ME_REFRESH_TOKEN_LIFETIME
+                        )
+                except Exception:
+                    pass
                 set_refresh_cookie(response, rotated_refresh)
 
             log_event(
