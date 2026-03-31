@@ -97,6 +97,7 @@ class PostListView(OrganizationContextMixin, generics.ListAPIView):
 
         return (
             Post.objects.filter(organization=org, is_deleted=False)
+            .select_related("created_by")
             .prefetch_related(
                 "platforms",
                 "platforms__publishing_target",
@@ -165,6 +166,10 @@ class PostDetailView(OrganizationContextMixin, generics.RetrieveAPIView):
 
         return Post.objects.filter(
             organization=self.request.organization, is_deleted=False
+        ).select_related("created_by").prefetch_related(
+            "platforms",
+            "platforms__publishing_target",
+            "platforms__media",
         )
 
 

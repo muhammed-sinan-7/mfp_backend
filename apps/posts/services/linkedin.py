@@ -7,6 +7,26 @@ from .base import BasePublisher
 class LinkedInPublisher(BasePublisher):
 
     BASE_URL = "https://api.linkedin.com/v2"
+    REQUEST_TIMEOUT = 20
+
+    def _raise_for_linkedin_error(self, response, action):
+        if response.status_code in [200, 201, 202]:
+            return
+
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {"message": response.text[:300]}
+
+        message = str(payload)
+
+        # LinkedIn can revoke tokens before our stored expiry timestamp.
+        if response.status_code in [401, 403] or "INVALID_ACCESS_TOKEN" in message:
+            raise Exception(
+                "LinkedIn access token expired or was revoked. Please reconnect your LinkedIn account."
+            )
+
+        raise Exception(f"{action}: {message}")
 
     def publish(self, post_platform):
 
@@ -69,13 +89,15 @@ class LinkedInPublisher(BasePublisher):
         print("FINAL PAYLOAD:", payload)
 
         response = requests.post(
-            f"{self.BASE_URL}/ugcPosts", json=payload, headers=headers
+            f"{self.BASE_URL}/ugcPosts",
+            json=payload,
+            headers=headers,
+            timeout=self.REQUEST_TIMEOUT,
         )
 
         print("POST RESPONSE:", response.status_code, response.text)
 
-        if response.status_code not in [200, 201]:
-            raise Exception(f"LinkedIn publish failed: {response.text}")
+        self._raise_for_linkedin_error(response, "LinkedIn publish failed")
 
         return {"external_id": response.json().get("id")}
 
@@ -113,12 +135,14 @@ class LinkedInPublisher(BasePublisher):
             f"{self.BASE_URL}/assets?action=registerUpload",
             json=register_payload,
             headers=headers,
+            timeout=self.REQUEST_TIMEOUT,
         )
 
         print("REGISTER IMAGE:", register_res.status_code, register_res.text)
 
-        if register_res.status_code != 200:
-            raise Exception(f"LinkedIn image register failed: {register_res.text}")
+        self._raise_for_linkedin_error(
+            register_res, "LinkedIn image register failed"
+        )
 
         data = register_res.json()
 
@@ -139,12 +163,12 @@ class LinkedInPublisher(BasePublisher):
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/octet-stream",
             },
+            timeout=self.REQUEST_TIMEOUT,
         )
 
         print("UPLOAD IMAGE:", upload_res.status_code, upload_res.text[:200])
 
-        if upload_res.status_code not in [200, 201, 202]:
-            raise Exception(f"LinkedIn image upload failed: {upload_res.status_code} {upload_res.text[:300]}")
+        self._raise_for_linkedin_error(upload_res, "LinkedIn image upload failed")
 
         self._wait_for_asset_ready(asset, access_token)
 
@@ -175,12 +199,14 @@ class LinkedInPublisher(BasePublisher):
             f"{self.BASE_URL}/assets?action=registerUpload",
             json=register_payload,
             headers=headers,
+            timeout=self.REQUEST_TIMEOUT,
         )
 
         print("REGISTER VIDEO:", register_res.status_code, register_res.text)
 
-        if register_res.status_code != 200:
-            raise Exception(f"LinkedIn video register failed: {register_res.text}")
+        self._raise_for_linkedin_error(
+            register_res, "LinkedIn video register failed"
+        )
 
         data = register_res.json()
 
@@ -200,12 +226,12 @@ class LinkedInPublisher(BasePublisher):
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/octet-stream",
             },
+            timeout=self.REQUEST_TIMEOUT,
         )
 
         print("UPLOAD VIDEO:", upload_res.status_code, upload_res.text[:200])
 
-        if upload_res.status_code not in [200, 201, 202]:
-            raise Exception(f"LinkedIn video upload failed: {upload_res.status_code} {upload_res.text[:300]}")
+        self._raise_for_linkedin_error(upload_res, "LinkedIn video upload failed")
 
         self._wait_for_asset_ready(asset, access_token)
 
