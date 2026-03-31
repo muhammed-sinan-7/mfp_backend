@@ -33,6 +33,11 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = os.getenv("DEBUG") == "True"
 REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1")
 
+DEFAULT_FRONTEND_ORIGIN = "http://localhost:5173" if DEBUG else "https://app.unisocial.online"
+DEFAULT_COOKIE_DOMAIN = None if DEBUG else ".unisocial.online"
+DEFAULT_COOKIE_SECURE = not DEBUG
+DEFAULT_COOKIE_SAMESITE = "Lax" if DEBUG else "None"
+
 ALLOWED_HOSTS = [
     "13.126.82.175",
     "unisocial.online",
@@ -41,25 +46,39 @@ ALLOWED_HOSTS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://unisocial.online",
-    "https://www.unisocial.online",
-    "https://api.unisocial.online",
-    "https://app.unisocial.online",
+    os.getenv("FRONTEND_ORIGIN", DEFAULT_FRONTEND_ORIGIN),
 ]
+SESSION_COOKIE_DOMAIN = os.getenv("SESSION_COOKIE_DOMAIN", DEFAULT_COOKIE_DOMAIN)
+CSRF_COOKIE_DOMAIN = os.getenv("CSRF_COOKIE_DOMAIN", DEFAULT_COOKIE_DOMAIN)
 
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", str(DEFAULT_COOKIE_SECURE)) == "True"
+CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", str(DEFAULT_COOKIE_SECURE)) == "True"
+
+SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", DEFAULT_COOKIE_SAMESITE)
+CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", DEFAULT_COOKIE_SAMESITE)
+
+SESSION_COOKIE_HTTPONLY = True
+
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 USE_X_FORWARDED_HOST = True
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://app.unisocial.online",
+    os.getenv("FRONTEND_ORIGIN", DEFAULT_FRONTEND_ORIGIN),
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+AUTH_REFRESH_COOKIE_NAME = os.getenv("AUTH_REFRESH_COOKIE_NAME", "refresh_token")
+AUTH_REFRESH_COOKIE_DOMAIN = os.getenv(
+    "AUTH_REFRESH_COOKIE_DOMAIN",
+    SESSION_COOKIE_DOMAIN,
+)
+AUTH_REFRESH_COOKIE_PATH = os.getenv("AUTH_REFRESH_COOKIE_PATH", "/api/v1/auth/")
+AUTH_REFRESH_COOKIE_SECURE = (
+    os.getenv("AUTH_REFRESH_COOKIE_SECURE", str(DEFAULT_COOKIE_SECURE)) == "True"
+)
+AUTH_REFRESH_COOKIE_SAMESITE = os.getenv("AUTH_REFRESH_COOKIE_SAMESITE", DEFAULT_COOKIE_SAMESITE)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -160,7 +179,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": False,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 SWAGGER_SETTINGS = {

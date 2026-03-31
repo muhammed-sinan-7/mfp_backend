@@ -1,7 +1,7 @@
 # apps/authentication/api/views.py
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from rest_framework import status
 from rest_framework.exceptions import Throttled
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -24,10 +24,7 @@ from apps.authentication.exceptions import (
     OTPInvalidException,
     OTPLockedException,
 )
-from apps.authentication.services.auth_service import (
-    login_user,
-    verify_email,
-)
+from apps.authentication.services.auth_service import verify_email
 from apps.authentication.services.otp_service import (
     create_otp,
     verify_otp,
@@ -36,6 +33,28 @@ from apps.authentication.services.throttle_service import throttle_request
 from apps.organizations.models import OrganizationMember
 
 User = get_user_model()
+
+
+def set_refresh_cookie(response, refresh_token):
+    response.set_cookie(
+        key=settings.AUTH_REFRESH_COOKIE_NAME,
+        value=str(refresh_token),
+        max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+        httponly=True,
+        secure=settings.AUTH_REFRESH_COOKIE_SECURE,
+        samesite=settings.AUTH_REFRESH_COOKIE_SAMESITE,
+        domain=settings.AUTH_REFRESH_COOKIE_DOMAIN,
+        path=settings.AUTH_REFRESH_COOKIE_PATH,
+    )
+
+
+def clear_refresh_cookie(response):
+    response.delete_cookie(
+        key=settings.AUTH_REFRESH_COOKIE_NAME,
+        domain=settings.AUTH_REFRESH_COOKIE_DOMAIN,
+        path=settings.AUTH_REFRESH_COOKIE_PATH,
+        samesite=settings.AUTH_REFRESH_COOKIE_SAMESITE,
+    )
 
 
 # ---------------- REGISTER ---------------- #
@@ -159,10 +178,21 @@ class ResetPasswordView(APIView):
 
 class CustomTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
+        refresh_token = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE_NAME)
+        if not refresh_token:
+            return Response({"detail": "Refresh token missing"}, status=401)
+
+        if hasattr(request.data, "_mutable"):
+            request.data._mutable = True
+        request.data["refresh"] = refresh_token
         response = super().post(request, *args, **kwargs)
 
         # ⚠️ user not available here → log minimal info
         if response.status_code == 200:
+            new_refresh = response.data.pop("refresh", None)
+            if new_refresh:
+                set_refresh_cookie(response, new_refresh)
+
             log_event(
                 actor=None,
                 organization=None,
@@ -213,14 +243,17 @@ class VerifyEmailOTPView(APIView):
         except Throttled:
             return Response({"error": "Too many requests"}, status=429)
 
-        return Response(
+        response = Response(
             {
                 "message": "Email verified",
                 "access": str(refresh.access_token),
-                "refresh": str(refresh),
+                "id": str(user.id),
+                "email": user.email,
             },
             status=200,
         )
+        set_refresh_cookie(response, refresh)
+        return response
 
 
 class LoginView(APIView):
@@ -237,8 +270,6 @@ class LoginView(APIView):
             throttle_request(request, "login", email)
 
             user = User.objects.get(email=email)
-            print("LOGIN EMAIL:", email)
-            print("USER FOUND:", user.id, user.email)
             if not user.check_password(password):
                 return Response({"error": "Invalid credentials"}, status=401)
 
@@ -270,16 +301,35 @@ class LoginView(APIView):
             .filter(user=user, is_deleted=False)
             .first()
         )
-        memberships = OrganizationMember.objects.filter(user=user)
-        print("ALL MEMBERSHIPS:", list(memberships.values()))
+        response = Response(
+            {
+                "access": str(refresh.access_token),
+                "id": str(user.id),
+                "email": user.email,
+                "org_id": org.organization.id if org else None,
+                "org_name": org.organization.name if org else None,
+                "role": org.role if org else None,
+            }
+        )
+        set_refresh_cookie(response, refresh)
+        return response
 
-        active_memberships = memberships.filter(is_deleted=False)
-        print("ACTIVE MEMBERSHIPS:", list(active_memberships.values()))
+
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        org = (
+            OrganizationMember.objects.select_related("organization")
+            .filter(user=request.user, is_deleted=False)
+            .first()
+        )
 
         return Response(
             {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
+                "id": str(request.user.id),
+                "email": request.user.email,
+                "is_authenticated": True,
                 "org_id": org.organization.id if org else None,
                 "org_name": org.organization.name if org else None,
                 "role": org.role if org else None,
@@ -288,19 +338,23 @@ class LoginView(APIView):
 
 
 class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
-
     def post(self, request):
         try:
-            refresh_token = request.data.get("refresh")
+            refresh_token = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE_NAME)
 
             if not refresh_token:
-                return Response({"error": "Refresh token required"}, status=400)
+                response = Response({"message": "Logged out successfully"}, status=200)
+                clear_refresh_cookie(response)
+                return response
 
             token = RefreshToken(refresh_token)
             token.blacklist()
 
-            return Response({"message": "Logged out successfully"}, status=200)
+            response = Response({"message": "Logged out successfully"}, status=200)
+            clear_refresh_cookie(response)
+            return response
 
         except Exception:
-            return Response({"error": "Invalid token"}, status=400)
+            response = Response({"error": "Invalid token"}, status=400)
+            clear_refresh_cookie(response)
+            return response
