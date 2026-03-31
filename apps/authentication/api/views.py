@@ -35,11 +35,21 @@ from apps.organizations.models import OrganizationMember
 User = get_user_model()
 
 
+def get_refresh_cookie_max_age(refresh_token):
+    remember_me = bool(refresh_token.get("remember_me"))
+    lifetime = (
+        settings.REMEMBER_ME_REFRESH_TOKEN_LIFETIME
+        if remember_me
+        else settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+    )
+    return int(lifetime.total_seconds())
+
+
 def set_refresh_cookie(response, refresh_token):
     response.set_cookie(
         key=settings.AUTH_REFRESH_COOKIE_NAME,
         value=str(refresh_token),
-        max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+        max_age=get_refresh_cookie_max_age(refresh_token),
         httponly=True,
         secure=settings.AUTH_REFRESH_COOKIE_SECURE,
         samesite=settings.AUTH_REFRESH_COOKIE_SAMESITE,
@@ -191,7 +201,14 @@ class CustomTokenRefreshView(TokenRefreshView):
         if response.status_code == 200:
             new_refresh = response.data.pop("refresh", None)
             if new_refresh:
-                set_refresh_cookie(response, new_refresh)
+                previous_refresh = RefreshToken(refresh_token)
+                rotated_refresh = RefreshToken(new_refresh)
+                if previous_refresh.get("remember_me"):
+                    rotated_refresh["remember_me"] = True
+                    rotated_refresh.set_exp(
+                        lifetime=settings.REMEMBER_ME_REFRESH_TOKEN_LIFETIME
+                    )
+                set_refresh_cookie(response, rotated_refresh)
 
             log_event(
                 actor=None,
@@ -265,6 +282,7 @@ class LoginView(APIView):
 
         email = serializer.validated_data["email"]
         password = serializer.validated_data["password"]
+        remember_me = serializer.validated_data.get("remember_me", False)
 
         try:
             throttle_request(request, "login", email)
@@ -289,6 +307,9 @@ class LoginView(APIView):
                 )
 
             refresh = RefreshToken.for_user(user)
+            if remember_me:
+                refresh["remember_me"] = True
+                refresh.set_exp(lifetime=settings.REMEMBER_ME_REFRESH_TOKEN_LIFETIME)
 
         except User.DoesNotExist:
             return Response({"error": "Invalid credentials"}, status=401)
