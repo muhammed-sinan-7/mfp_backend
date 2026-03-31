@@ -23,6 +23,13 @@ from sentry_sdk.integrations.django import DjangoIntegration
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 AUTH_USER_MODEL = "authentication.User"
+
+
+def env_list(name, default=None):
+    value = os.getenv(name)
+    if value is None:
+        return default or []
+    return [item.strip() for item in value.split(",") if item.strip()]
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -38,16 +45,19 @@ DEFAULT_COOKIE_DOMAIN = None if DEBUG else ".unisocial.online"
 DEFAULT_COOKIE_SECURE = not DEBUG
 DEFAULT_COOKIE_SAMESITE = "Lax" if DEBUG else "None"
 
-ALLOWED_HOSTS = [
-    "13.126.82.175",
-    "unisocial.online",
-    "www.unisocial.online",
-    "api.unisocial.online",
-]
+ALLOWED_HOSTS = env_list(
+    "ALLOWED_HOSTS",
+    [
+        "13.126.82.175",
+        "unisocial.online",
+        "www.unisocial.online",
+        "api.unisocial.online",
+    ],
+)
 
-CSRF_TRUSTED_ORIGINS = [
-    os.getenv("FRONTEND_ORIGIN", DEFAULT_FRONTEND_ORIGIN),
-]
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", DEFAULT_FRONTEND_ORIGIN)
+CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", [FRONTEND_ORIGIN])
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", [FRONTEND_ORIGIN])
 SESSION_COOKIE_DOMAIN = os.getenv("SESSION_COOKIE_DOMAIN", DEFAULT_COOKIE_DOMAIN)
 CSRF_COOKIE_DOMAIN = os.getenv("CSRF_COOKIE_DOMAIN", DEFAULT_COOKIE_DOMAIN)
 
@@ -64,9 +74,6 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 USE_X_FORWARDED_HOST = True
 
-CORS_ALLOWED_ORIGINS = [
-    os.getenv("FRONTEND_ORIGIN", DEFAULT_FRONTEND_ORIGIN),
-]
 CORS_ALLOW_CREDENTIALS = True
 
 AUTH_REFRESH_COOKIE_NAME = os.getenv("AUTH_REFRESH_COOKIE_NAME", "refresh_token")
@@ -216,7 +223,8 @@ CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 
-BASE_URL = "https://unforgetful-renetta-political.ngrok-free.dev"
+DEFAULT_BASE_URL = "http://localhost:8000" if DEBUG else "https://api.unisocial.online"
+BASE_URL = os.getenv("BASE_URL", DEFAULT_BASE_URL)
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
@@ -235,7 +243,7 @@ META_APP_ID = os.getenv("META_APP_ID")
 META_APP_SECRET = os.getenv("META_APP_SECRET")
 META_REDIRECT_URI = os.getenv("META_REDIRECT_URI")
 META_STATE_SECRET = os.getenv("META_STATE_SECRET")
-FRONTEND_SUCCESS_URL = os.getenv("FRONTEND_SUCCESS_URL")
+FRONTEND_SUCCESS_URL = os.getenv("FRONTEND_SUCCESS_URL", FRONTEND_ORIGIN)
 
 LINKEDIN_CLIENT_ID = os.getenv("LINKEDIN_CLIENT_ID")
 LINKEDIN_CLIENT_SECRET = os.getenv("LINKEDIN_CLIENT_SECRET")
