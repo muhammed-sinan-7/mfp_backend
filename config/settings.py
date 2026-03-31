@@ -32,13 +32,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG") == "True"
 REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1")
-# ALLOWED_HOSTS = [
-#     "localhost",
-#     "127.0.0.1",
-#     "unforgetful-renetta-political.ngrok-free.dev",
-#     "web",
-#     "nginx",
-# ]
+
 ALLOWED_HOSTS=[
     "13.126.82.175",
     "unisocial.online",
@@ -46,12 +40,11 @@ ALLOWED_HOSTS=[
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    # "http://127.0.0.1:8080",
-    # "http://localhost:8080",
+    
     "http://unisocial.online",
     "https://unisocial.online",
     "http://13.126.82.175:8080",
-    "http://unisocial.online:8080",
+  
 ]
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 USE_X_FORWARDED_HOST = True
