@@ -40,14 +40,17 @@ ALLOWED_HOSTS=[
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://unisocial.online",
     "https://unisocial.online",
-    "http://www.unisocial.online",
     "https://www.unisocial.online",
 ]
 
-SECURE_PROXY_SSL_HEADER = None
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 USE_X_FORWARDED_HOST = True
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
