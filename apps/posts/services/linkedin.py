@@ -1,5 +1,6 @@
 import requests
 import time
+from django.utils import timezone
 
 from .base import BasePublisher
 
@@ -9,7 +10,14 @@ class LinkedInPublisher(BasePublisher):
     BASE_URL = "https://api.linkedin.com/v2"
     REQUEST_TIMEOUT = 20
 
-    def _raise_for_linkedin_error(self, response, action):
+    def _mark_account_reconnect_required(self, post_platform):
+        social_account = post_platform.publishing_target.social_account
+        social_account.is_active = False
+        social_account.token_expires_at = timezone.now()
+        social_account.save(update_fields=["is_active", "token_expires_at"])
+        social_account.publishing_targets.update(is_active=False)
+
+    def _raise_for_linkedin_error(self, response, action, post_platform=None):
         if response.status_code in [200, 201, 202]:
             return
 
@@ -22,6 +30,8 @@ class LinkedInPublisher(BasePublisher):
 
         # LinkedIn can revoke tokens before our stored expiry timestamp.
         if response.status_code in [401, 403] or "INVALID_ACCESS_TOKEN" in message:
+            if post_platform is not None:
+                self._mark_account_reconnect_required(post_platform)
             raise Exception(
                 "LinkedIn access token expired or was revoked. Please reconnect your LinkedIn account."
             )
@@ -97,7 +107,11 @@ class LinkedInPublisher(BasePublisher):
 
         print("POST RESPONSE:", response.status_code, response.text)
 
-        self._raise_for_linkedin_error(response, "LinkedIn publish failed")
+        self._raise_for_linkedin_error(
+            response,
+            "LinkedIn publish failed",
+            post_platform=post_platform,
+        )
 
         return {"external_id": response.json().get("id")}
 
@@ -141,7 +155,9 @@ class LinkedInPublisher(BasePublisher):
         print("REGISTER IMAGE:", register_res.status_code, register_res.text)
 
         self._raise_for_linkedin_error(
-            register_res, "LinkedIn image register failed"
+            register_res,
+            "LinkedIn image register failed",
+            post_platform=file_field.instance.post_platform,
         )
 
         data = register_res.json()
@@ -168,7 +184,11 @@ class LinkedInPublisher(BasePublisher):
 
         print("UPLOAD IMAGE:", upload_res.status_code, upload_res.text[:200])
 
-        self._raise_for_linkedin_error(upload_res, "LinkedIn image upload failed")
+        self._raise_for_linkedin_error(
+            upload_res,
+            "LinkedIn image upload failed",
+            post_platform=file_field.instance.post_platform,
+        )
 
         self._wait_for_asset_ready(asset, access_token)
 
@@ -205,7 +225,9 @@ class LinkedInPublisher(BasePublisher):
         print("REGISTER VIDEO:", register_res.status_code, register_res.text)
 
         self._raise_for_linkedin_error(
-            register_res, "LinkedIn video register failed"
+            register_res,
+            "LinkedIn video register failed",
+            post_platform=file_field.instance.post_platform,
         )
 
         data = register_res.json()
@@ -231,7 +253,11 @@ class LinkedInPublisher(BasePublisher):
 
         print("UPLOAD VIDEO:", upload_res.status_code, upload_res.text[:200])
 
-        self._raise_for_linkedin_error(upload_res, "LinkedIn video upload failed")
+        self._raise_for_linkedin_error(
+            upload_res,
+            "LinkedIn video upload failed",
+            post_platform=file_field.instance.post_platform,
+        )
 
         self._wait_for_asset_ready(asset, access_token)
 

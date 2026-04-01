@@ -204,6 +204,7 @@ class LinkedInConnectView(OrganizationContextMixin, APIView):
 
 
 class LinkedInCallbackView(OrganizationContextMixin, APIView):
+    permission_classes = [AllowAny]
 
     def get(self, request):
 
@@ -216,21 +217,33 @@ class LinkedInCallbackView(OrganizationContextMixin, APIView):
             )
 
         try:
-
             org_id = LinkedInOAuthService.validate_state(state)
 
             token_data = LinkedInOAuthService.exchange_code(code)
 
-            profile_data = LinkedInOAuthService.fetch_profile(
-                token_data.get("access_token")
-            )
+            try:
+                profile_data = LinkedInOAuthService.fetch_profile(
+                    token_data.get("access_token")
+                )
+            except requests.Timeout:
+                logger.warning(
+                    "LinkedIn profile request timed out for organization %s; using id_token fallback",
+                    org_id,
+                )
+                profile_data = LinkedInOAuthService.get_profile_from_id_token(token_data)
 
             LinkedInOAuthService.save_account(
                 org_id=org_id, token_data=token_data, profile_data=profile_data
             )
 
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            logger.exception("LinkedIn callback failed: %s", str(e))
+            error_code = "linkedin_callback_failed"
+            if isinstance(e, requests.Timeout):
+                error_code = "linkedin_profile_timeout"
+            return redirect(
+                f"{settings.FRONTEND_SUCCESS_URL}/accounts?social_error={error_code}"
+            )
 
         return redirect(f"{settings.FRONTEND_SUCCESS_URL}/accounts")
 

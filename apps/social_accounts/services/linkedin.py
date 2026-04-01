@@ -2,6 +2,7 @@ import secrets
 import urllib.parse
 from datetime import timedelta
 
+import jwt
 import requests
 from django.conf import settings
 from django.core.cache import cache
@@ -55,7 +56,7 @@ class LinkedInOAuthService:
             "client_secret": settings.LINKEDIN_CLIENT_SECRET,
         }
 
-        response = requests.post(LinkedInOAuthService.TOKEN_URL, data=data, timeout=10)
+        response = requests.post(LinkedInOAuthService.TOKEN_URL, data=data, timeout=20)
 
         if response.status_code != 200:
             raise Exception("LinkedIn token exchange failed")
@@ -68,13 +69,33 @@ class LinkedInOAuthService:
         headers = {"Authorization": f"Bearer {access_token}"}
 
         response = requests.get(
-            LinkedInOAuthService.PROFILE_URL, headers=headers, timeout=10
+            LinkedInOAuthService.PROFILE_URL, headers=headers, timeout=20
         )
 
         if response.status_code != 200:
             raise Exception("Failed to fetch LinkedIn profile")
 
         return response.json()
+
+    @staticmethod
+    def get_profile_from_id_token(token_data):
+        id_token = token_data.get("id_token")
+        if not id_token:
+            raise Exception("LinkedIn profile data unavailable")
+
+        profile_data = jwt.decode(
+            id_token,
+            options={
+                "verify_signature": False,
+                "verify_aud": False,
+                "verify_iss": False,
+            },
+        )
+
+        if not profile_data.get("sub"):
+            raise Exception("LinkedIn profile data unavailable")
+
+        return profile_data
 
     @staticmethod
     def validate_state(state):
