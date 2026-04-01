@@ -9,6 +9,7 @@ from datetime import timedelta
 import requests
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Prefetch
 from django.shortcuts import redirect
 from django.utils import timezone
 from rest_framework import status
@@ -300,6 +301,16 @@ class SocialAccountListView(OrganizationContextMixin, APIView):
 
         accounts = SocialAccount.objects.filter(
             organization=organization, is_active=True
+        ).prefetch_related(
+            Prefetch(
+                "publishing_targets",
+                queryset=PublishingTarget.objects.filter(is_active=True).only(
+                    "id",
+                    "social_account_id",
+                    "provider",
+                    "display_name",
+                ),
+            )
         )
 
         serializer = SocialAccountSerializer(accounts, many=True)

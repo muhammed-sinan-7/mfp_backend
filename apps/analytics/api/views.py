@@ -13,6 +13,7 @@ from ..models import PostPlatformAnalytics, PostPlatformAnalyticsSnapshot
 from .serializers import PostAnalyticsSerializer
 
 CACHE_TTL_SECONDS = 60
+FULL_DASHBOARD_CACHE_TTL_SECONDS = 5 * 60
 
 
 def _cache_key(org_id, scope, extra=""):
@@ -578,6 +579,6 @@ class FullDashboardAPIView(OrganizationContextMixin, APIView):
         }
 
         
-        cache.set(cache_key, payload, timeout=30)
+        cache.set(cache_key, payload, timeout=FULL_DASHBOARD_CACHE_TTL_SECONDS)
 
         return Response(payload)
