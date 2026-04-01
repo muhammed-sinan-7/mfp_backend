@@ -316,7 +316,14 @@ class LoginView(APIView):
         try:
             throttle_request(request, "login", email)
 
-            user = User.objects.get(email=email)
+            user = User.objects.only(
+                "id",
+                "email",
+                "password",
+                "is_email_verified",
+                "is_staff",
+                "is_superuser",
+            ).get(email=email)
             if not user.check_password(password):
                 return Response({"error": "Invalid credentials"}, status=401)
 
@@ -348,6 +355,7 @@ class LoginView(APIView):
 
         org = (
             OrganizationMember.objects.select_related("organization")
+            .only("role", "organization__id", "organization__name")
             .filter(user=user, is_deleted=False)
             .first()
         )
@@ -412,3 +420,24 @@ class LogoutView(APIView):
             response = Response({"error": "Invalid token"}, status=400)
             clear_refresh_cookie(response)
             return response
+
+
+class SafeTokenRefreshView(CustomTokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        try:
+            response = super().post(request, *args, **kwargs)
+            if response.status_code >= 500:
+                fallback = Response(
+                    {"error": "Session expired. Please sign in again."},
+                    status=401,
+                )
+                clear_refresh_cookie(fallback)
+                return fallback
+            return response
+        except Exception:
+            fallback = Response(
+                {"error": "Session expired. Please sign in again."},
+                status=401,
+            )
+            clear_refresh_cookie(fallback)
+            return fallback

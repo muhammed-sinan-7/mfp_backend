@@ -1,7 +1,6 @@
 from django.urls import path
 
 from .views import (
-    CustomTokenRefreshView,
     LoginView,
     LogoutView,
     MeView,
@@ -9,6 +8,7 @@ from .views import (
     RegisterUserView,
     ResetPasswordView,
     RequestEmailOTPView,
+    SafeTokenRefreshView,
     VerifyEmailOTPView,
 )
 
@@ -20,7 +20,7 @@ urlpatterns = [
     path("register/", RegisterUserView.as_view()),
     path("login/", LoginView.as_view()),
     path("me/", MeView.as_view(), name="me"),
-    path("token/refresh/", CustomTokenRefreshView.as_view(), name="token_refresh"),
+    path("token/refresh/", SafeTokenRefreshView.as_view(), name="token_refresh"),
     path("logout/", LogoutView.as_view(), name="logout"),
     # path("test-dashboard/", TestDashboardView.as_view()),
 ]
