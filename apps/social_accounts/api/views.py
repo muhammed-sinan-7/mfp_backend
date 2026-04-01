@@ -5,10 +5,10 @@ import json
 import logging
 import time
 from datetime import timedelta
-from urllib.parse import urlencode
 
 import requests
 from django.conf import settings
+from django.db import transaction
 from django.shortcuts import redirect
 from django.utils import timezone
 from rest_framework import status
@@ -33,6 +33,41 @@ from ..tasks import sync_meta_pages_task
 from .serializers import PublishingTargetSerializer, SocialAccountSerializer
 
 logger = logging.getLogger(__name__)
+
+
+def disconnect_social_account(account):
+    """
+    Fully clear provider credentials and child records so a later reconnect
+    starts from a clean application-side state instead of reviving stale data.
+    """
+    with transaction.atomic():
+        account.publishing_targets.update(is_active=False)
+
+        if account.provider == SocialProvider.LINKEDIN:
+            account.linkedin_organizations.update(is_active=False)
+        elif account.provider == SocialProvider.META:
+            account.meta_pages.all().delete()
+
+        account.is_active = False
+        account.access_token = ""
+        account.refresh_token = None
+        account.token_expires_at = None
+        account.scopes = []
+        account.metadata = {}
+        account.refresh_failed_count = 0
+        account.last_refreshed_at = None
+        account.save(
+            update_fields=[
+                "is_active",
+                "access_token",
+                "refresh_token",
+                "token_expires_at",
+                "scopes",
+                "metadata",
+                "refresh_failed_count",
+                "last_refreshed_at",
+            ]
+        )
 
 
 class MetaConnectView(OrganizationContextMixin, APIView):
@@ -64,22 +99,7 @@ class MetaConnectView(OrganizationContextMixin, APIView):
 
         state = self.generate_state(request.user.id, org_id)
 
-        params = {
-            "client_id": settings.META_APP_ID,
-            "redirect_uri": settings.META_REDIRECT_URI,
-            "state": state,
-            "scope": ",".join(
-                [
-                    "pages_show_list",
-                    "pages_read_engagement",
-                    "instagram_basic",
-                    "instagram_content_publish",
-                ]
-            ),
-            "response_type": "code",
-        }
-
-        auth_url = "https://www.facebook.com/v18.0/dialog/oauth?" + urlencode(params)
+        auth_url = MetaOAuthService().get_authorization_url(state)
 
         return Response({"authorization_url": auth_url})
 
@@ -491,9 +511,6 @@ class SocialAccountDisconnectView(OrganizationContextMixin, APIView):
         if not account:
             return Response({"error": "Account not found"}, status=404)
 
-        account.is_active = False
-        account.save(update_fields=["is_active"])
-
-        account.publishing_targets.update(is_active=False)
+        disconnect_social_account(account)
 
         return Response({"message": "Account disconnected"})

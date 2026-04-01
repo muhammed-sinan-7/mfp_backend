@@ -46,7 +46,7 @@ class YouTubeOAuthService:
             "response_type": "code",
             "scope": " ".join(YouTubeOAuthService.SCOPES),
             "access_type": "offline",
-            "prompt": "consent",
+            "prompt": "select_account consent",
             "state": state,
         }
 
