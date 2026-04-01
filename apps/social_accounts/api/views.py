@@ -227,13 +227,37 @@ class LinkedInCallbackView(OrganizationContextMixin, APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-
-        code = request.GET.get("code")
+        oauth_error = request.GET.get("error")
+        oauth_error_description = request.GET.get("error_description")
         state = request.GET.get("state")
 
+        if oauth_error:
+            logger.info(
+                "LinkedIn OAuth cancelled/failed: error=%s description=%s state=%s",
+                oauth_error,
+                oauth_error_description,
+                state,
+            )
+            if state:
+                try:
+                    LinkedInOAuthService.validate_state(state)
+                except Exception:
+                    logger.warning("LinkedIn OAuth state cleanup failed for cancelled flow")
+
+            if oauth_error == "user_cancelled_login":
+                return redirect(
+                    f"{settings.FRONTEND_SUCCESS_URL}/accounts?social_error=linkedin_cancelled"
+                )
+
+            return redirect(
+                f"{settings.FRONTEND_SUCCESS_URL}/accounts?social_error=linkedin_callback_failed"
+            )
+
+        code = request.GET.get("code")
+
         if not code or not state:
-            return Response(
-                {"error": "Missing code or state"}, status=status.HTTP_400_BAD_REQUEST
+            return redirect(
+                f"{settings.FRONTEND_SUCCESS_URL}/accounts?social_error=linkedin_callback_failed"
             )
 
         try:
