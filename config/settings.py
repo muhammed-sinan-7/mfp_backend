@@ -110,6 +110,7 @@ INSTALLED_APPS = [
     "apps.news",
     "apps.audit",
     "apps.ai",
+    "apps.platform_admin",
 ]
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (

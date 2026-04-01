@@ -51,6 +51,7 @@ urlpatterns = [
     path("api/v1/posts/", include("apps.posts.api.urls")),
     path("api/v1/news/", include("apps.news.api.urls")),
     path("api/v1/ai/", include("apps.ai.api.urls")),
+    path("api/v1/admin-panel/", include("apps.platform_admin.api_urls")),
     path(
         "swagger/", schema_view.with_ui("swagger", cache_timeout=0), name="swagger-ui"
     ),

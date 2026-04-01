@@ -232,6 +232,8 @@ class CustomTokenRefreshView(TokenRefreshView):
                             "org_id": org.organization.id if org else None,
                             "org_name": org.organization.name if org else None,
                             "role": org.role if org else None,
+                            "is_staff": user.is_staff,
+                            "is_superuser": user.is_superuser,
                         }
                     )
             except Exception:
@@ -357,6 +359,8 @@ class LoginView(APIView):
                 "org_id": org.organization.id if org else None,
                 "org_name": org.organization.name if org else None,
                 "role": org.role if org else None,
+                "is_staff": user.is_staff,
+                "is_superuser": user.is_superuser,
             }
         )
         set_refresh_cookie(response, refresh)
@@ -381,6 +385,8 @@ class MeView(APIView):
                 "org_id": org.organization.id if org else None,
                 "org_name": org.organization.name if org else None,
                 "role": org.role if org else None,
+                "is_staff": request.user.is_staff,
+                "is_superuser": request.user.is_superuser,
             }
         )
 
