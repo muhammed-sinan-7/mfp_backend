@@ -213,6 +213,30 @@ class CustomTokenRefreshView(TokenRefreshView):
                     pass
                 set_refresh_cookie(response, rotated_refresh)
 
+            try:
+                previous_refresh = RefreshToken(refresh_token)
+                user = User.objects.filter(id=previous_refresh.get("user_id")).first()
+                org = (
+                    OrganizationMember.objects.select_related("organization")
+                    .filter(user=user, is_deleted=False)
+                    .first()
+                    if user
+                    else None
+                )
+
+                if user:
+                    response.data.update(
+                        {
+                            "id": str(user.id),
+                            "email": user.email,
+                            "org_id": org.organization.id if org else None,
+                            "org_name": org.organization.name if org else None,
+                            "role": org.role if org else None,
+                        }
+                    )
+            except Exception:
+                pass
+
             log_event(
                 actor=None,
                 organization=None,
