@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db.models.deletion import ProtectedError
 from django.db.models import Count, Q
 from datetime import timedelta
 from django.utils import timezone
@@ -9,6 +10,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.audit.models import AuditLog
+from apps.industries.models import Industry
+from apps.news.models import NewsSource
 from apps.organizations.models import Organization, OrganizationMember
 from apps.posts.models import Post
 from apps.social_accounts.api.views import disconnect_social_account
@@ -19,6 +22,10 @@ from .permissions import IsPlatformAdmin
 from .serializers import (
     AdminAuditLogSerializer,
     AdminOrganizationSerializer,
+    AdminIndustrySerializer,
+    AdminIndustryWriteSerializer,
+    AdminNewsSourceSerializer,
+    AdminNewsSourceWriteSerializer,
     AdminPostSerializer,
     AdminSocialAccountSerializer,
     AdminUserSerializer,
@@ -349,3 +356,101 @@ class AdminAuditLogListView(AdminPaginationMixin, APIView):
                 | Q(organization__name__icontains=query)
             )
         return self.paginate(request, queryset, AdminAuditLogSerializer)
+
+
+class AdminIndustryListCreateView(AdminPaginationMixin, APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        query = request.query_params.get("q", "").strip()
+        queryset = Industry.objects.all().order_by("name")
+        if query:
+            queryset = queryset.filter(Q(name__icontains=query) | Q(slug__icontains=query))
+        return self.paginate(request, queryset, AdminIndustrySerializer)
+
+    def post(self, request):
+        serializer = AdminIndustryWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        industry = serializer.save()
+        return Response(AdminIndustrySerializer(industry).data, status=status.HTTP_201_CREATED)
+
+
+class AdminIndustryDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get_object(self, industry_id):
+        return Industry.objects.filter(id=industry_id).first()
+
+    def patch(self, request, industry_id):
+        industry = self.get_object(industry_id)
+        if not industry:
+            return Response({"error": "Industry not found"}, status=404)
+
+        serializer = AdminIndustryWriteSerializer(industry, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(AdminIndustrySerializer(industry).data)
+
+    def delete(self, request, industry_id):
+        industry = self.get_object(industry_id)
+        if not industry:
+            return Response({"error": "Industry not found"}, status=404)
+        try:
+            industry.delete()
+        except ProtectedError:
+            return Response(
+                {"error": "Industry is linked to active records. Remove linked records first."},
+                status=400,
+            )
+        return Response({"message": "Industry deleted"})
+
+
+class AdminNewsSourceListCreateView(AdminPaginationMixin, APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        query = request.query_params.get("q", "").strip()
+        include_inactive = request.query_params.get("include_inactive") == "1"
+
+        queryset = NewsSource.objects.select_related("industry").order_by("-created_at")
+        if not include_inactive:
+            queryset = queryset.filter(is_active=True)
+
+        if query:
+            queryset = queryset.filter(
+                Q(name__icontains=query)
+                | Q(rss_url__icontains=query)
+                | Q(industry__name__icontains=query)
+            )
+
+        return self.paginate(request, queryset, AdminNewsSourceSerializer)
+
+    def post(self, request):
+        serializer = AdminNewsSourceWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        source = serializer.save()
+        return Response(AdminNewsSourceSerializer(source).data, status=status.HTTP_201_CREATED)
+
+
+class AdminNewsSourceDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+
+    def get_object(self, source_id):
+        return NewsSource.objects.select_related("industry").filter(id=source_id).first()
+
+    def patch(self, request, source_id):
+        source = self.get_object(source_id)
+        if not source:
+            return Response({"error": "News source not found"}, status=404)
+
+        serializer = AdminNewsSourceWriteSerializer(source, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(AdminNewsSourceSerializer(source).data)
+
+    def delete(self, request, source_id):
+        source = self.get_object(source_id)
+        if not source:
+            return Response({"error": "News source not found"}, status=404)
+        source.delete()
+        return Response({"message": "News source deleted"})

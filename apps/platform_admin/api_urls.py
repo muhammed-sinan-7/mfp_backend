@@ -2,6 +2,10 @@ from django.urls import path
 
 from .views import (
     AdminAuditLogListView,
+    AdminIndustryDetailView,
+    AdminIndustryListCreateView,
+    AdminNewsSourceDetailView,
+    AdminNewsSourceListCreateView,
     AdminOrganizationDetailView,
     AdminOrganizationListCreateView,
     AdminOrganizationRestoreView,
@@ -28,5 +32,8 @@ urlpatterns = [
     path("posts/<uuid:post_id>/", AdminPostDetailView.as_view()),
     path("posts/<uuid:post_id>/restore/", AdminPostRestoreView.as_view()),
     path("audit-logs/", AdminAuditLogListView.as_view()),
+    path("industries/", AdminIndustryListCreateView.as_view()),
+    path("industries/<uuid:industry_id>/", AdminIndustryDetailView.as_view()),
+    path("news-sources/", AdminNewsSourceListCreateView.as_view()),
+    path("news-sources/<uuid:source_id>/", AdminNewsSourceDetailView.as_view()),
 ]
-

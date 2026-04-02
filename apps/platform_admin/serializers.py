@@ -1,7 +1,10 @@
 from django.contrib.auth import get_user_model
+from django.utils.text import slugify
 from rest_framework import serializers
 
 from apps.audit.models import AuditLog
+from apps.industries.models import Industry
+from apps.news.models import NewsSource
 from apps.organizations.models import Organization, OrganizationMember
 from apps.posts.models import Post, PostPlatform
 from apps.social_accounts.models import SocialAccount
@@ -209,3 +212,69 @@ class AdminAuditLogSerializer(serializers.ModelSerializer):
             "metadata",
             "created_at",
         ]
+
+
+class AdminIndustrySerializer(serializers.ModelSerializer):
+    source_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Industry
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "created_at",
+            "updated_at",
+            "source_count",
+        ]
+
+    def get_source_count(self, obj):
+        return obj.news_sources.count()
+
+
+class AdminIndustryWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Industry
+        fields = ["name", "slug"]
+
+    def validate(self, attrs):
+        name = attrs.get("name", getattr(self.instance, "name", ""))
+        slug = attrs.get("slug") or slugify(name)
+
+        queryset = Industry.objects.filter(slug=slug)
+        if self.instance:
+            queryset = queryset.exclude(id=self.instance.id)
+
+        if queryset.exists():
+            raise serializers.ValidationError({"slug": "Slug already exists."})
+
+        attrs["slug"] = slug
+        return attrs
+
+
+class AdminNewsSourceSerializer(serializers.ModelSerializer):
+    industry_name = serializers.CharField(source="industry.name", read_only=True)
+    article_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = NewsSource
+        fields = [
+            "id",
+            "name",
+            "rss_url",
+            "industry",
+            "industry_name",
+            "is_active",
+            "created_at",
+            "updated_at",
+            "article_count",
+        ]
+
+    def get_article_count(self, obj):
+        return obj.articles.count()
+
+
+class AdminNewsSourceWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NewsSource
+        fields = ["name", "rss_url", "industry", "is_active"]

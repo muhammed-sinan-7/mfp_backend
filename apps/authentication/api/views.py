@@ -216,6 +216,13 @@ class CustomTokenRefreshView(TokenRefreshView):
             try:
                 previous_refresh = RefreshToken(refresh_token)
                 user = User.objects.filter(id=previous_refresh.get("user_id")).first()
+                if user and not user.is_active:
+                    fallback = Response(
+                        {"error": "Account is inactive. Please contact support."},
+                        status=401,
+                    )
+                    clear_refresh_cookie(fallback)
+                    return fallback
                 org = (
                     OrganizationMember.objects.select_related("organization")
                     .filter(user=user, is_deleted=False)
@@ -320,12 +327,18 @@ class LoginView(APIView):
                 "id",
                 "email",
                 "password",
+                "is_active",
                 "is_email_verified",
                 "is_staff",
                 "is_superuser",
             ).get(email=email)
             if not user.check_password(password):
                 return Response({"error": "Invalid credentials"}, status=401)
+            if not user.is_active:
+                return Response(
+                    {"error": "Account is inactive. Please contact support."},
+                    status=403,
+                )
 
             if not user.is_email_verified:
                 try:
