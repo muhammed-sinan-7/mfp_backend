@@ -33,7 +33,7 @@ urlpatterns = [
     path("posts/<uuid:post_id>/restore/", AdminPostRestoreView.as_view()),
     path("audit-logs/", AdminAuditLogListView.as_view()),
     path("industries/", AdminIndustryListCreateView.as_view()),
-    path("industries/<uuid:industry_id>/", AdminIndustryDetailView.as_view()),
+    path("industries/<int:industry_id>/", AdminIndustryDetailView.as_view()),
     path("news-sources/", AdminNewsSourceListCreateView.as_view()),
-    path("news-sources/<uuid:source_id>/", AdminNewsSourceDetailView.as_view()),
+    path("news-sources/<int:source_id>/", AdminNewsSourceDetailView.as_view()),
 ]
