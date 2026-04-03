@@ -46,6 +46,9 @@ class SocialAccountSerializer(serializers.ModelSerializer):
         if not obj.is_active:
             return "disconnected"
 
+        if not obj.token_expires_at:
+            return "disconnected"
+
         if obj.token_expires_at < timezone.now():
             return "disconnected"
 
